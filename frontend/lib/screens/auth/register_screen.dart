@@ -1,11 +1,3 @@
-/*
-  Ecran d'inscription e-commerce :
-  - Fond dégradé cyan/turquoise + image e-commerce overlay
-  - Effet glassmorphism (flou et transparence) sur le formulaire
-  - Logo panier coloré, boutons stylés, TextFields glassy
-  - Dropdown stylisé pour le rôle
-  - Style moderne, cohérent avec LoginScreen
-*/
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +6,7 @@ import 'dart:ui';
 
 class RegisterScreen extends StatefulWidget {
   @override
+  // ignore: library_private_types_in_public_api
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 

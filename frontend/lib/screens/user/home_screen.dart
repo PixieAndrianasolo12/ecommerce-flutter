@@ -2,8 +2,8 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../screens/auth/login_screen.dart';
+import '../../providers/auth_provider.dart';
+import '../auth/login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
@@ -11,7 +11,6 @@ class HomeScreen extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      // Dégradé en fond, comme login/register
       body: Stack(
         children: [
           // Dégradé + image e-commerce en background
@@ -66,7 +65,7 @@ class HomeScreen extends StatelessWidget {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Accueil  ${auth.role == "admin" ? "(ADMIN)" : ""}',
+                          'Accueil',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 22,
@@ -93,7 +92,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Contenu principal en glassmorphism card
           Center(
             child: Container(
@@ -143,9 +142,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                           child: Center(
                             child: Icon(
-                              auth.role == 'admin'
-                                  ? Icons.verified_user_rounded
-                                  : Icons.person_rounded,
+                              Icons.person_rounded,
                               color: Colors.white,
                               size: 40,
                               shadows: [
@@ -160,9 +157,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                         SizedBox(height: 20),
                         Text(
-                          auth.role == 'admin'
-                              ? 'Bienvenue ADMIN'
-                              : 'Bienvenue UTILISATEUR',
+                          'Bienvenue UTILISATEUR',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -180,58 +175,31 @@ class HomeScreen extends StatelessWidget {
                           textAlign: TextAlign.center,
                         ),
                         SizedBox(height: 16),
-                        if (auth.role == 'admin')
-                          Card(
-                            elevation: 0,
-                            color: Colors.white.withOpacity(0.86),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.settings, color: Color(0xFF00B4D8), size: 20),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    "Espace administrateur",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFF023E8A),
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                        Card(
+                          elevation: 0,
+                          color: Colors.white.withOpacity(0.86),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.shopping_bag, color: Color(0xFF00B4D8), size: 20),
+                                SizedBox(width: 10),
+                                Text(
+                                  "Espace client",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Color(0xFF023E8A),
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        if (auth.role != 'admin')
-                          Card(
-                            elevation: 0,
-                            color: Colors.white.withOpacity(0.86),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.shopping_bag, color: Color(0xFF00B4D8), size: 20),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    "Espace client",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFF023E8A),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        ),
                       ],
                     ),
                   ),

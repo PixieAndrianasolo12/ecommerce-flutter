@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/home_screen.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/register_screen.dart';
+import '../user/home_screen.dart';
+import '../admin/dashboard_admin.dart';
 import 'dart:ui';
 
 class LoginScreen extends StatefulWidget {
@@ -152,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           child: Center(
             child: Icon(
-              Icons.shopping_cart_rounded, // ou Icons.shopping_bag_rounded
+              Icons.shopping_cart_rounded,
               color: Colors.white,
               size: 38,
               shadows: [
@@ -234,10 +235,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         isLoading = false;
                       });
                       if (success) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => HomeScreen()),
-                        );
+                        // Vérifie le rôle et redirige vers la bonne page
+                        String? userRole = authProvider.userRole;
+                        if (userRole == "admin") {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => AdminDashboardScreen()),
+                          );
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => HomeScreen()),
+                          );
+                        }
                       } else {
                         showError();
                       }
