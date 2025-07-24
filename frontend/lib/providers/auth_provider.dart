@@ -22,7 +22,7 @@ class AuthProvider with ChangeNotifier {
       final data = await _authService.login(username, password);
       if (data['token'] != null && data['user'] != null) {
         _token = data['token'];
-        _role = data['user']['role']?.toString()?.toLowerCase(); // normalisé
+        _role = data['user']['role']?.toString().toLowerCase(); // normalisé
         _username = data['user']['username'];
         await _authService.saveToken(_token!);
         notifyListeners();
