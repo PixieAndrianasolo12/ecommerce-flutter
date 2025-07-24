@@ -1,234 +1,303 @@
-import 'dart:ui' show ImageFilter;
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
+import 'add_category_form.dart' show AddCategoryFormPage;
+import 'add_product_form.dart' show AddProductFormPage;
 
-class AdminDashboardScreen extends StatelessWidget {
+class AdminDashboardScreen extends StatefulWidget {
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  List categories = [];
+  List products = [];
+  String? error;
+  bool loading = false;
+  String selectedCategory = 'Toutes';
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCategories();
+    fetchProducts();
+  }
+
+  Future<void> fetchCategories() async {
+    setState(() { loading = true; });
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final res = await http.get(
+        Uri.parse('http://localhost:5000/api/categories'),
+        headers: {
+          "Authorization": "Bearer ${auth.token}"
+        }
+      );
+      if (res.statusCode == 200) {
+        categories = jsonDecode(res.body);
+        setState(() {});
+      } else {
+        setState(() { error = "Erreur catégories: ${res.body}"; });
+      }
+    } catch (e) {
+      setState(() { error = "Erreur réseau: $e"; });
+    } finally { setState(() { loading = false; }); }
+  }
+
+  Future<void> fetchProducts() async {
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final res = await http.get(
+        Uri.parse('http://localhost:5000/api/products'),
+        headers: {
+          "Authorization": "Bearer ${auth.token}"
+        }
+      );
+      if (res.statusCode == 200) {
+        products = jsonDecode(res.body);
+        setState(() {});
+      } else {
+        setState(() { error = "Erreur produits: ${res.body}"; });
+      }
+    } catch (e) {
+      setState(() { error = "Erreur réseau: $e"; });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    List<String> allCats = ['Toutes', ...categories.map((c) => c['name'] as String)];
+    var filteredProducts = selectedCategory == 'Toutes'
+        ? products
+        : products.where((p) => p['category']?['name'] == selectedCategory).toList();
 
     return Scaffold(
-      body: Stack(
+      backgroundColor: Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Color(0xFF2C3E50),
+        elevation: 0,
+        title: Text('Admin Dashboard', 
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: isMobile ? 18 : 22,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.white),
+            tooltip: "Se déconnecter",
+            onPressed: () async {
+              await auth.logout();
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            },
+          ),
+        ],
+      ),
+      body: Column(
         children: [
-          // Dégradé + image e-commerce en background
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1DB954), Color(0xFF90E0EF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Image.network(
-              "https://images.unsplash.com/photo-1515169273891-1e2b235662de?auto=format&fit=crop&w=800&q=80",
-              fit: BoxFit.cover,
-              color: Colors.white.withOpacity(0.14),
-              colorBlendMode: BlendMode.lighten,
-            ),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
-              child: Container(color: Colors.white.withOpacity(0.10)),
-            ),
-          ),
-          // AppBar glassmorphism
-          SafeArea(
-            child: Padding(
-              padding: EdgeInsets.only(top: 18, left: 10, right: 10),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  height: 62,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.70),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0xFF1DB954).withOpacity(0.10),
-                        blurRadius: 22,
-                        offset: Offset(0, 7),
+          // Filtres Catégories
+          Container(
+            color: Colors.white,
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16),
+              child: Row(
+                children: allCats.map((cat) {
+                  bool selected = selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: selected,
+                      selectedColor: Color(0xFF3498DB),
+                      backgroundColor: Color(0xFFECF0F1),
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : Color(0xFF2C3E50),
+                        fontSize: isMobile ? 12 : 14,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(width: 20),
-                      Icon(Icons.admin_panel_settings, color: Color(0xFF1DB954), size: 30),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Admin',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 22,
-                            color: Color(0xFF232F3E),
-                          ),
-                        ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.logout, color: Color(0xFFFF9800), size: 26),
-                        tooltip: "Se déconnecter",
-                        onPressed: () async {
-                          await auth.logout();
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (_) => LoginScreen()),
-                            (route) => false,
-                          );
-                        },
-                      ),
-                      SizedBox(width: 8),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Contenu principal en glassmorphism card
-          Center(
-            child: Container(
-              constraints: BoxConstraints(maxWidth: 420),
-              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 30),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 13, sigmaY: 13),
-                  child: Container(
-                    padding: EdgeInsets.all(30),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.80),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0xFF1DB954).withOpacity(0.16),
-                          blurRadius: 30,
-                          offset: Offset(0, 10),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.12),
-                        width: 1,
-                      ),
+                      onSelected: (_) => setState(() => selectedCategory = cat),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 82,
-                          height: 82,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF1DB954), Color(0xFF90E0EF)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          if (loading)
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3498DB)),
+              ),
+            ),
+          if (error != null)
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(error!, 
+                style: TextStyle(
+                  color: Color(0xFFE74C3C),
+                  fontSize: isMobile ? 14 : 16,
+                ),
+              ),
+            ),
+          // GRID DES PRODUITS
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 16,
+                vertical: 8,
+              ),
+              child: GridView.builder(
+                itemCount: filteredProducts.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: isMobile ? 2 : 3,
+                  mainAxisExtent: isMobile ? 220 : 260,
+                  crossAxisSpacing: isMobile ? 8 : 16,
+                  mainAxisSpacing: isMobile ? 8 : 16,
+                ),
+                itemBuilder: (context, index) {
+                  var prod = filteredProducts[index];
+                  String imageUrl = prod['image'] ??
+                      "https://via.placeholder.com/120";
+                  String name = prod['name'] ?? "";
+                  String cat = prod['category']?['name'] ?? "-";
+                  double price = (prod['price'] ?? 0).toDouble();
+                  int stock = (prod['stock'] ?? 0);
+
+                  return Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 3,
+                    shadowColor: Colors.black.withOpacity(0.1),
+                    child: Padding(
+                      padding: EdgeInsets.all(isMobile ? 10 : 15),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.image_not_supported, 
+                                  size: 50, 
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0xFF1DB954).withOpacity(0.18),
-                                blurRadius: 18,
-                                offset: Offset(2, 7),
+                          ),
+                          SizedBox(height: isMobile ? 5 : 8),
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isMobile ? 14 : 16,
+                              color: Color(0xFF2C3E50),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            maxLines: 1,
+                          ),
+                          Text(
+                            cat,
+                            style: TextStyle(
+                              color: Color(0xFF7F8C8D),
+                              fontSize: isMobile ? 12 : 14,
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 4 : 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("\$${price.toStringAsFixed(2)}",
+                                  style: TextStyle(
+                                    color: Color(0xFFE74C3C),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isMobile ? 14 : 16,
+                                  )),
+                              Text('Stock: $stock',
+                                  style: TextStyle(
+                                    color: Color(0xFF7F8C8D), 
+                                    fontSize: isMobile ? 12 : 14,
+                                  )),
+                              Icon(
+                                Icons.favorite_border, 
+                                color: Color(0xFFE74C3C),
+                                size: isMobile ? 18 : 20,
                               ),
                             ],
                           ),
-                          child: Center(
-                            child: Icon(
-                              Icons.admin_panel_settings,
-                              color: Colors.white,
-                              size: 44,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 12,
-                                  color: Color(0xFF1DB954).withOpacity(0.18),
-                                  offset: Offset(2, 3),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 20),
-                        Text(
-                          'Bienvenue ADMIN',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF232F3E),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          'Nom : ${auth.username ?? ""}',
-                          style: TextStyle(
-                            fontSize: 17,
-                            color: Color(0xFF1DB954),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: 16),
-                        Card(
-                          elevation: 0,
-                          color: Colors.white.withOpacity(0.92),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.dashboard_customize, color: Color(0xFF1DB954), size: 22),
-                                SizedBox(width: 10),
-                                Text(
-                                  "Espace administrateur",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Color(0xFF232F3E),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        ElevatedButton.icon(
-                          icon: Icon(Icons.logout, color: Colors.white, size: 20),
-                          label: Text("Déconnexion", style: TextStyle(fontSize: 15)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF1DB954),
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            elevation: 0,
-                          ),
-                          onPressed: () async {
-                            await auth.logout();
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (_) => LoginScreen()),
-                              (route) => false,
-                            );
-                          },
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 24,
+          vertical: 8,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'addCat',
+              backgroundColor: Color(0xFF3498DB),
+              icon: Icon(Icons.add, size: isMobile ? 20 : 24),
+              label: Text(
+                'Ajouter Catégorie',
+                style: TextStyle(fontSize: isMobile ? 14 : 16),
+              ),
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddCategoryFormPage(),
+                  ),
+                );
+                if (result == true) fetchCategories();
+              },
+            ),
+            if (!isMobile) SizedBox(width: 20),
+            FloatingActionButton.extended(
+              heroTag: 'addProd',
+              backgroundColor: Color(0xFF2ECC71),
+              icon: Icon(Icons.add_shopping_cart, size: isMobile ? 20 : 24),
+              label: Text(
+                'Ajouter Produit',
+                style: TextStyle(fontSize: isMobile ? 14 : 16),
+              ),
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddProductFormPage(categories: categories),
+                  ),
+                );
+                if (result == true) fetchProducts();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
