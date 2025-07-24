@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 
 class AddProductFormPage extends StatefulWidget {
@@ -18,6 +22,9 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
   final _prodPriceCtrl = TextEditingController();
   final _prodStockCtrl = TextEditingController();
   String? selectedCatId;
+  XFile? _selectedImageX;      // Pour Web et mobile
+  File? _selectedImageFile;    // Pour Mobile (Android/iOS)
+  Uint8List? _imageBytes;      // Pour Web (affichage preview)
   bool loading = false;
   String? error;
   late AnimationController _animationController;
@@ -56,6 +63,26 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
     super.dispose();
   }
 
+  Future<void> pickImage() async {
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImageX = pickedFile;
+        if (kIsWeb) {
+          // Web: lire en bytes pour preview ET pour l’envoi
+          pickedFile.readAsBytes().then((bytes) {
+            setState(() {
+              _imageBytes = bytes;
+            });
+          });
+        } else {
+          // Mobile : fichier
+          _selectedImageFile = File(pickedFile.path);
+        }
+      });
+    }
+  }
+
   Future<void> addProduct() async {
     if (_prodNameCtrl.text.isEmpty) {
       setState(() { error = "Le nom du produit est requis"; });
@@ -78,30 +105,72 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
       loading = true;
       error = null;
     });
+
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final res = await http.post(
-        Uri.parse('http://localhost:5000/api/products'),
-        headers: {
-          "Authorization": "Bearer ${auth.token}",
-          "Content-Type": "application/json"
-        },
-        body: jsonEncode({
+
+      if (kIsWeb) {
+        // ------ FLUTTER WEB -------
+        String? base64Image;
+        if (_imageBytes != null) {
+          base64Image = base64Encode(_imageBytes!);
+        }
+
+        final data = {
           "name": _prodNameCtrl.text,
           "description": _prodDescCtrl.text,
           "price": double.tryParse(_prodPriceCtrl.text) ?? 0,
           "stock": int.tryParse(_prodStockCtrl.text) ?? 0,
           "category": selectedCatId,
-        })
-      );
-      if (res.statusCode == 201) {
-        await _animationController.reverse();
-        Navigator.pop(context, true);
+          if (base64Image != null) "image_base64": base64Image,
+        };
+
+        final res = await http.post(
+          Uri.parse('http://localhost:5000/api/products'),
+          headers: {
+            "Authorization": "Bearer ${auth.token}",
+            "Content-Type": "application/json"
+          },
+          body: jsonEncode(data),
+        );
+
+        if (res.statusCode == 201) {
+          await _animationController.reverse();
+          Navigator.pop(context, true);
+        } else {
+          setState(() {
+            error = res.body;
+            _shakeError();
+          });
+        }
       } else {
-        setState(() {
-          error = jsonDecode(res.body)['message'] ?? "Erreur inconnue";
-          _shakeError();
-        });
+        // ------ MOBILE (Android/iOS) -------
+        var uri = Uri.parse('http://localhost:5000/api/products');
+        var request = http.MultipartRequest('POST', uri);
+        request.headers['Authorization'] = 'Bearer ${auth.token}';
+
+        request.fields['name'] = _prodNameCtrl.text;
+        request.fields['description'] = _prodDescCtrl.text;
+        request.fields['price'] = _prodPriceCtrl.text;
+        request.fields['stock'] = _prodStockCtrl.text;
+        request.fields['category'] = selectedCatId!;
+
+        if (_selectedImageFile != null) {
+          request.files.add(await http.MultipartFile.fromPath('image', _selectedImageFile!.path));
+        }
+
+        var streamedResponse = await request.send();
+        var response = await http.Response.fromStream(streamedResponse);
+
+        if (response.statusCode == 201) {
+          await _animationController.reverse();
+          Navigator.pop(context, true);
+        } else {
+          setState(() {
+            error = jsonDecode(response.body)['message'] ?? "Erreur inconnue";
+            _shakeError();
+          });
+        }
       }
     } catch (e) {
       setState(() {
@@ -134,7 +203,7 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
             ),
           ],
         ),
-        backgroundColor: Color(0xFF2E5A88), // Bleu professionnel
+        backgroundColor: Color(0xFF2E5A88),
         elevation: 0,
         centerTitle: false,
         iconTheme: IconThemeData(color: Colors.white),
@@ -161,6 +230,57 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // IMAGE PICKER
+                    Center(
+                      child: InkWell(
+                        onTap: loading ? null : pickImage,
+                        borderRadius: BorderRadius.circular(60),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 48,
+                              backgroundColor: Color(0xFF2E5A88).withOpacity(0.08),
+                              backgroundImage: kIsWeb
+                                  ? (_imageBytes != null
+                                      ? MemoryImage(_imageBytes!)
+                                      : null)
+                                  : (_selectedImageFile != null
+                                      ? FileImage(_selectedImageFile!)
+                                      : null),
+                              child: (_selectedImageX == null)
+                                  ? Icon(Icons.add_a_photo,
+                                      size: 38,
+                                      color: Color(0xFF2E5A88).withOpacity(0.65))
+                                  : null,
+                            ),
+                            if (_selectedImageX != null)
+                              Positioned(
+                                bottom: 0,
+                                right: 4,
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.white,
+                                  child: Icon(Icons.edit, color: Color(0xFF2E5A88), size: 18),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        _selectedImageX == null
+                            ? "Ajouter une image"
+                            : "Image sélectionnée",
+                        style: TextStyle(
+                          color: Color(0xFF2E5A88),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 26),
                     _buildAnimatedInputField(
                       icon: Icons.label_important,
                       label: "Nom du produit",

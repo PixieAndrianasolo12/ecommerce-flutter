@@ -50,7 +50,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final res = await http.get(
-        Uri.parse('http://localhost:5000/api/products'),
+        Uri.parse('http://192.168.137.250:5000/api/products'),
         headers: {
           "Authorization": "Bearer ${auth.token}"
         }
