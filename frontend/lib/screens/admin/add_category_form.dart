@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // AJOUTER CECI
 import '../../providers/auth_provider.dart';
 
 class AddCategoryFormPage extends StatefulWidget {
@@ -18,29 +19,34 @@ class _AddCategoryFormPageState extends State<AddCategoryFormPage> with SingleTi
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
+  String get baseUrl {
+    String? url = dotenv.env['API_BASE_URL'];
+    if (url == null || url.isEmpty) {
+      url = 'http://localhost:5000/api';
+    }
+    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+    return url;
+  }
+
   @override
   void initState() {
     super.initState();
-    
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 500),
     );
-    
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: Curves.easeInOut,
       ),
     );
-    
     _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: Curves.easeInOut,
       ),
     );
-    
     _animationController.forward();
   }
 
@@ -59,16 +65,15 @@ class _AddCategoryFormPageState extends State<AddCategoryFormPage> with SingleTi
       });
       return;
     }
-
-    setState(() { 
+    setState(() {
       loading = true;
       error = null;
     });
-    
+
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final res = await http.post(
-        Uri.parse('http://localhost:5000/api/categories'),
+        Uri.parse('$baseUrl/categories'),
         headers: {
           "Authorization": "Bearer ${auth.token}",
           "Content-Type": "application/json"
@@ -76,25 +81,27 @@ class _AddCategoryFormPageState extends State<AddCategoryFormPage> with SingleTi
         body: jsonEncode({
           "name": _catCtrl.text,
           "description": _catDescCtrl.text,
-        })
+        }),
       );
-      
+
       if (res.statusCode == 201) {
         await _animationController.reverse();
         Navigator.pop(context, true);
       } else {
-        setState(() { 
+        setState(() {
           error = jsonDecode(res.body)['message'] ?? "Erreur inconnue";
           _shakeError();
         });
       }
     } catch (e) {
-      setState(() { 
+      setState(() {
         error = "Erreur réseau: $e";
         _shakeError();
       });
-    } finally { 
-      setState(() { loading = false; }); 
+    } finally {
+      setState(() {
+        loading = false;
+      });
     }
   }
 
@@ -110,7 +117,8 @@ class _AddCategoryFormPageState extends State<AddCategoryFormPage> with SingleTi
           children: [
             Icon(Icons.category, color: Colors.white),
             SizedBox(width: 10),
-            Text('Nouvelle Catégorie', 
+            Text(
+              'Nouvelle Catégorie',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -158,8 +166,7 @@ class _AddCategoryFormPageState extends State<AddCategoryFormPage> with SingleTi
                       maxLines: 3,
                     ),
                     SizedBox(height: 30),
-                    if (error != null)
-                      _buildErrorWidget(error!),
+                    if (error != null) _buildErrorWidget(error!),
                     SizedBox(height: 20),
                     _buildSubmitButton(),
                   ],

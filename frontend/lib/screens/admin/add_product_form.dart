@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // AJOUTER CECI
 import '../../providers/auth_provider.dart';
 
 class AddProductFormPage extends StatefulWidget {
@@ -30,6 +30,15 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+
+  String get baseUrl {
+    String? url = dotenv.env['API_BASE_URL'];
+    if (url == null || url.isEmpty) {
+      url = 'http://localhost:5000/api';
+    }
+    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+    return url;
+  }
 
   @override
   void initState() {
@@ -126,7 +135,7 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
         };
 
         final res = await http.post(
-          Uri.parse('http://localhost:5000/api/products'),
+          Uri.parse('$baseUrl/products'),
           headers: {
             "Authorization": "Bearer ${auth.token}",
             "Content-Type": "application/json"
@@ -139,13 +148,13 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
           Navigator.pop(context, true);
         } else {
           setState(() {
-            error = res.body;
+            error = jsonDecode(res.body)['message'] ?? res.body;
             _shakeError();
           });
         }
       } else {
         // ------ MOBILE (Android/iOS) -------
-        var uri = Uri.parse('http://localhost:5000/api/products');
+        var uri = Uri.parse('$baseUrl/products');
         var request = http.MultipartRequest('POST', uri);
         request.headers['Authorization'] = 'Bearer ${auth.token}';
 

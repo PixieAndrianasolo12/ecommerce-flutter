@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // AJOUTER CECI
 import '../../providers/auth_provider.dart';
 import 'add_category_form.dart' show AddCategoryFormPage;
 import 'add_product_form.dart' show AddProductFormPage;
@@ -18,6 +19,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool loading = false;
   String selectedCategory = 'Toutes';
 
+  String get baseUrl {
+    String? url = dotenv.env['API_BASE_URL'];
+    if (url == null || url.isEmpty) {
+      url = 'http://localhost:5000/api';
+    }
+    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+    return url;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -30,7 +40,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final res = await http.get(
-        Uri.parse('http://localhost:5000/api/categories'),
+        Uri.parse('$baseUrl/categories'),
         headers: {
           "Authorization": "Bearer ${auth.token}"
         }
@@ -50,7 +60,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final res = await http.get(
-        Uri.parse('http://192.168.137.250:5000/api/products'),
+        Uri.parse('$baseUrl/products'),
         headers: {
           "Authorization": "Bearer ${auth.token}"
         }
@@ -81,7 +91,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         backgroundColor: Color(0xFF2C3E50),
         elevation: 0,
-        title: Text('Admin Dashboard', 
+        title: Text('Admin Dashboard',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -143,7 +153,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           if (error != null)
             Padding(
               padding: EdgeInsets.all(12),
-              child: Text(error!, 
+              child: Text(error!,
                 style: TextStyle(
                   color: Color(0xFFE74C3C),
                   fontSize: isMobile ? 14 : 16,
@@ -193,8 +203,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 imageUrl,
                                 fit: BoxFit.contain,
                                 errorBuilder: (_, __, ___) => Icon(
-                                  Icons.image_not_supported, 
-                                  size: 50, 
+                                  Icons.image_not_supported,
+                                  size: 50,
                                   color: Colors.grey,
                                 ),
                               ),
@@ -230,11 +240,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   )),
                               Text('Stock: $stock',
                                   style: TextStyle(
-                                    color: Color(0xFF7F8C8D), 
+                                    color: Color(0xFF7F8C8D),
                                     fontSize: isMobile ? 12 : 14,
                                   )),
                               Icon(
-                                Icons.favorite_border, 
+                                Icons.favorite_border,
                                 color: Color(0xFFE74C3C),
                                 size: isMobile ? 18 : 20,
                               ),
