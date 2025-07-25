@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // AJOUTER CECI
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../providers/auth_provider.dart';
 
 class AddProductFormPage extends StatefulWidget {
@@ -22,9 +22,9 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
   final _prodPriceCtrl = TextEditingController();
   final _prodStockCtrl = TextEditingController();
   String? selectedCatId;
-  XFile? _selectedImageX;      // Pour Web et mobile
-  File? _selectedImageFile;    // Pour Mobile (Android/iOS)
-  Uint8List? _imageBytes;      // Pour Web (affichage preview)
+  XFile? _selectedImageX;
+  File? _selectedImageFile;
+  Uint8List? _imageBytes;
   bool loading = false;
   String? error;
   late AnimationController _animationController;
@@ -78,14 +78,12 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
       setState(() {
         _selectedImageX = pickedFile;
         if (kIsWeb) {
-          // Web: lire en bytes pour preview ET pour l’envoi
           pickedFile.readAsBytes().then((bytes) {
             setState(() {
               _imageBytes = bytes;
             });
           });
         } else {
-          // Mobile : fichier
           _selectedImageFile = File(pickedFile.path);
         }
       });
@@ -109,6 +107,10 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
       setState(() { error = "Veuillez sélectionner une catégorie"; });
       return;
     }
+    if (_selectedImageX == null) {
+      setState(() { error = "Veuillez sélectionner une image produit"; });
+      return;
+    }
 
     setState(() {
       loading = true;
@@ -119,12 +121,11 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
       final auth = Provider.of<AuthProvider>(context, listen: false);
 
       if (kIsWeb) {
-        // ------ FLUTTER WEB -------
+        // FLUTTER WEB
         String? base64Image;
         if (_imageBytes != null) {
           base64Image = base64Encode(_imageBytes!);
         }
-
         final data = {
           "name": _prodNameCtrl.text,
           "description": _prodDescCtrl.text,
@@ -133,7 +134,6 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
           "category": selectedCatId,
           if (base64Image != null) "image_base64": base64Image,
         };
-
         final res = await http.post(
           Uri.parse('$baseUrl/products'),
           headers: {
@@ -142,41 +142,48 @@ class _AddProductFormPageState extends State<AddProductFormPage> with SingleTick
           },
           body: jsonEncode(data),
         );
-
         if (res.statusCode == 201) {
           await _animationController.reverse();
           Navigator.pop(context, true);
         } else {
+          String err;
+          try {
+            err = jsonDecode(res.body)['message'] ?? res.body;
+          } catch (_) {
+            err = res.body;
+          }
           setState(() {
-            error = jsonDecode(res.body)['message'] ?? res.body;
+            error = err;
             _shakeError();
           });
         }
       } else {
-        // ------ MOBILE (Android/iOS) -------
+        // MOBILE (Android/iOS)
         var uri = Uri.parse('$baseUrl/products');
         var request = http.MultipartRequest('POST', uri);
         request.headers['Authorization'] = 'Bearer ${auth.token}';
-
         request.fields['name'] = _prodNameCtrl.text;
         request.fields['description'] = _prodDescCtrl.text;
         request.fields['price'] = _prodPriceCtrl.text;
         request.fields['stock'] = _prodStockCtrl.text;
         request.fields['category'] = selectedCatId!;
-
         if (_selectedImageFile != null) {
           request.files.add(await http.MultipartFile.fromPath('image', _selectedImageFile!.path));
         }
-
         var streamedResponse = await request.send();
         var response = await http.Response.fromStream(streamedResponse);
-
         if (response.statusCode == 201) {
           await _animationController.reverse();
           Navigator.pop(context, true);
         } else {
+          String err;
+          try {
+            err = jsonDecode(response.body)['message'] ?? response.body;
+          } catch (_) {
+            err = response.body;
+          }
           setState(() {
-            error = jsonDecode(response.body)['message'] ?? "Erreur inconnue";
+            error = err;
             _shakeError();
           });
         }

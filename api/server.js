@@ -15,11 +15,11 @@ const app = express();
 // Middlewares
 app.use(cors());
 
-// DOIT ÊTRE AVANT les routes ET AVANT tout appel à express.json()
-app.use(express.json({ limit: '20mb' }));            // Limite augmentée pour gros fichiers
+
+app.use(express.json({ limit: '20mb' }));            
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static('uploads'));
 
 // Connexion à MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })

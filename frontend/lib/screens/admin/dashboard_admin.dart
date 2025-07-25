@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // AJOUTER CECI
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../providers/auth_provider.dart';
 import 'add_category_form.dart' show AddCategoryFormPage;
 import 'add_product_form.dart' show AddProductFormPage;
@@ -19,6 +19,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool loading = false;
   String selectedCategory = 'Toutes';
 
+  // Retourne la racine du site (sans /api)
+  String get rootUrl {
+    String? url = dotenv.env['API_BASE_URL'];
+    if (url == null || url.isEmpty) {
+      url = 'http://localhost:5000/api';
+    }
+    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+    if (url.endsWith('/api')) url = url.substring(0, url.length - 4);
+    return url;
+  }
+
+  // Retourne l'URL de l'API (avec /api)
   String get baseUrl {
     String? url = dotenv.env['API_BASE_URL'];
     if (url == null || url.isEmpty) {
@@ -36,44 +48,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> fetchCategories() async {
-    setState(() { loading = true; });
+    setState(() {
+      loading = true;
+      error = null;
+    });
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final res = await http.get(
         Uri.parse('$baseUrl/categories'),
         headers: {
-          "Authorization": "Bearer ${auth.token}"
-        }
+          "Authorization": "Bearer ${auth.token}",
+        },
       );
       if (res.statusCode == 200) {
         categories = jsonDecode(res.body);
-        setState(() {});
       } else {
-        setState(() { error = "Erreur catégories: ${res.body}"; });
+        error = "Erreur catégories: ${res.body}";
       }
     } catch (e) {
-      setState(() { error = "Erreur réseau: $e"; });
-    } finally { setState(() { loading = false; }); }
+      error = "Erreur réseau: $e";
+    } finally {
+      setState(() {
+        loading = false;
+      });
+    }
   }
 
   Future<void> fetchProducts() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final res = await http.get(
         Uri.parse('$baseUrl/products'),
         headers: {
-          "Authorization": "Bearer ${auth.token}"
-        }
+          "Authorization": "Bearer ${auth.token}",
+        },
       );
       if (res.statusCode == 200) {
         products = jsonDecode(res.body);
-        setState(() {});
       } else {
-        setState(() { error = "Erreur produits: ${res.body}"; });
+        error = "Erreur produits: ${res.body}";
       }
     } catch (e) {
-      setState(() { error = "Erreur réseau: $e"; });
+      error = "Erreur réseau: $e";
+    } finally {
+      setState(() {
+        loading = false;
+      });
     }
+  }
+
+  /// Helper pour obtenir une URL d'image complète et en ligne
+  String _getFullImageUrl(dynamic prod) {
+    if (prod['images'] == null || prod['images'].isEmpty) return '';
+    String url = prod['images'][0].toString();
+    if (url.startsWith('http')) {
+      if (url.contains('localhost')) return ''; // on ne veut pas localhost
+      return url;
+    }
+    // Lien relatif => on le complète
+    return rootUrl + (url.startsWith('/') ? url : '/$url');
   }
 
   @override
@@ -91,7 +128,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         backgroundColor: Color(0xFF2C3E50),
         elevation: 0,
-        title: Text('Admin Dashboard',
+        title: Text(
+          'Admin Dashboard',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -153,7 +191,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           if (error != null)
             Padding(
               padding: EdgeInsets.all(12),
-              child: Text(error!,
+              child: Text(
+                error!,
                 style: TextStyle(
                   color: Color(0xFFE74C3C),
                   fontSize: isMobile ? 14 : 16,
@@ -177,8 +216,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 itemBuilder: (context, index) {
                   var prod = filteredProducts[index];
-                  String imageUrl = prod['image'] ??
-                      "https://via.placeholder.com/120";
+                  String imageUrl = _getFullImageUrl(prod);
                   String name = prod['name'] ?? "";
                   String cat = prod['category']?['name'] ?? "-";
                   double price = (prod['price'] ?? 0).toDouble();
@@ -199,15 +237,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           Expanded(
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                imageUrl,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  Icons.image_not_supported,
-                                  size: 50,
-                                  color: Colors.grey,
-                                ),
-                              ),
+                              child: imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => Icon(
+                                        Icons.image_not_supported,
+                                        size: 50,
+                                        color: Colors.grey,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.image_not_supported,
+                                      size: 50,
+                                      color: Colors.grey,
+                                    ),
                             ),
                           ),
                           SizedBox(height: isMobile ? 5 : 8),
